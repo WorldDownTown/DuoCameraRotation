@@ -12,6 +12,8 @@ The segmented control at the bottom switches how the preview rotation angle is d
 | `device` | Sets a fixed angle for each device orientation (`UIDevice.current.orientation`) to `AVCaptureConnection.videoRotationAngle` |
 | `coordinator` | Sets `AVCaptureDevice.RotationCoordinator.videoRotationAngleForHorizonLevelPreview` to `AVCaptureConnection.videoRotationAngle` |
 
+The menu above it selects which camera to use (back, front, and so on).
+
 The implementation is in `applyRotation()` in [CameraPreview.swift](DuoCameraRotation/CameraPreview.swift).
 
 ## Results on a real device

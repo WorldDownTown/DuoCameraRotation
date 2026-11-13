@@ -12,6 +12,8 @@ iPhone Duo の内側画面でカメラのプレビューが 90 度回転する�
 | `device` | 端末の向き (`UIDevice.current.orientation`) に対応する固定の角度を `AVCaptureConnection.videoRotationAngle` に設定する |
 | `coordinator` | `AVCaptureDevice.RotationCoordinator.videoRotationAngleForHorizonLevelPreview` を `AVCaptureConnection.videoRotationAngle` に設定する |
 
+切替の上のメニューで、使うカメラ (背面、前面など) を選べる。
+
 実装は [CameraPreview.swift](DuoCameraRotation/CameraPreview.swift) の `applyRotation()` にある。
 
 ## 実機での結果

@@ -9,8 +9,17 @@ enum RotationMode: String, CaseIterable, Identifiable {
     var id: Self { self }
 }
 
+extension AVCaptureDevice {
+    static let videoCameras = DiscoverySession(
+        deviceTypes: [.builtInWideAngleCamera, .builtInUltraWideCamera, .builtInTelephotoCamera],
+        mediaType: .video,
+        position: .unspecified
+    ).devices
+}
+
 struct CameraPreview: UIViewRepresentable {
     let mode: RotationMode
+    let camera: AVCaptureDevice?
     @Binding var status: String
 
     func makeUIView(context: Context) -> PreviewView {
@@ -24,12 +33,18 @@ struct CameraPreview: UIViewRepresentable {
 
     func updateUIView(_ view: PreviewView, context: Context) {
         view.mode = mode
+        view.camera = camera
     }
 }
 
 final class PreviewView: UIView {
     var mode = RotationMode.interface {
         didSet { applyRotation() }
+    }
+    var camera: AVCaptureDevice? {
+        didSet {
+            if camera != oldValue { switchCamera() }
+        }
     }
     var onStatusChange: ((String) -> Void)?
 
@@ -62,21 +77,9 @@ final class PreviewView: UIView {
     }
 
     private func configure() {
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-              let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else {
-            onStatusChange?("camera unavailable")
-            return
-        }
-        session.addInput(input)
         previewLayer.session = session
         previewLayer.videoGravity = .resizeAspectFill
-
-        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
-        self.coordinator = coordinator
-        observation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]) { [weak self] _, _ in
-            self?.applyRotation()
-        }
+        switchCamera()
 
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         deviceOrientationObserver = NotificationCenter.default.addObserver(
@@ -87,6 +90,30 @@ final class PreviewView: UIView {
 
         DispatchQueue.global(qos: .userInitiated).async { [session] in
             session.startRunning()
+        }
+    }
+
+    private func switchCamera() {
+        guard previewLayer.session != nil else { return }
+
+        observation = nil
+        coordinator = nil
+        session.beginConfiguration()
+        session.inputs.forEach(session.removeInput)
+        guard let device = camera,
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input) else {
+            session.commitConfiguration()
+            onStatusChange?("camera unavailable")
+            return
+        }
+        session.addInput(input)
+        session.commitConfiguration()
+
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+        self.coordinator = coordinator
+        observation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]) { [weak self] _, _ in
+            self?.applyRotation()
         }
     }
 
@@ -113,6 +140,7 @@ final class PreviewView: UIView {
         }
 
         onStatusChange?("""
+            camera:               \(coordinator.device?.localizedName ?? "unknown")
             interfaceOrientation: \(interfaceOrientation.name)
             deviceOrientation:    \(UIDevice.current.orientation.name)
             coordinator angle:    \(Int(coordinator.videoRotationAngleForHorizonLevelPreview))
